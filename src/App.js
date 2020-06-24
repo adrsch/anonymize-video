@@ -18,12 +18,10 @@ function App() {
   const handleUploadVideo = () => runAnon({
     videoInput: document.getElementById('video'),
     canvasOutput: document.getElementById('canvasOutput'),
-    detectFace: document.getElementById('face'),
-    detectEye: document.getElementById('eye'),
+    detection: 'deep',
     uploadVideo: uploadVideo,
-    streaming: streaming,
-    setStreaming: setStreaming,
     setMediaRecorder: setMediaRecorder,
+    playbackRate: 0.1,
   });
 
   const stopRecording = () => {
@@ -70,12 +68,10 @@ function App() {
 const runAnon = ({
   videoInput,
   canvasOutput,
-  detectFace,
-  detectEye,
+  detection,
   uploadVideo,
-  streaming,
-  setStreaming,
   setMediaRecorder,
+  playbackRate,
 }) => {
   videoInput.src = (window.URL || window.webkitURL).createObjectURL(uploadVideo.current.files[0]);
   const mediaRecorder = outputRecorder({
@@ -83,32 +79,29 @@ const runAnon = ({
     canvasOutput: canvasOutput,
     audioTrack: outputAudioTrack({
       videoInput: videoInput,
-      playback: false,
+      playAudio: false,
     }),
   });
   setMediaRecorder(mediaRecorder);
-  setStreaming(
-    initVideo({
-      videoInput: videoInput,
-      canvasOutput: canvasOutput,
-      detectFace: detectFace,
-      detectEye: detectEye,
-      mediaRecorder: mediaRecorder,
-      streaming: streaming,
-    })
-  );
+  initVideo({
+    videoInput: videoInput,
+    canvasOutput: canvasOutput,
+    detection: detection,
+    mediaRecorder: mediaRecorder,
+    playbackRate: playbackRate,
+  });
 };
 
 const outputAudioTrack = ({
   videoInput,
-  playback,
+  playAudio,
 }) => {
   const audioContext = new AudioContext();
   const audioDest = audioContext.createMediaStreamDestination();
   const audioSrc = audioContext.createMediaElementSource(videoInput);
 
   audioSrc.connect(audioDest); // Play audio to stream destination for recording
-  if (playback) {
+  if (playAudio) {
     audioSrc.connect(audioContext.destination) // Play audio to user
   };
   
@@ -155,31 +148,29 @@ const outputRecorder = ({
 const initVideo = ({
   videoInput,
   canvasOutput,
+  detection,
   mediaRecorder,
-  streaming
+  playbackRate=1.0,
 }) => (
-  (streaming)
-    ? true
-    : (videoInput.addEventListener("canplaythrough", (event) => {
-
-      if (!streaming) {
-        const videoWidth = videoInput.videoWidth;
-        const videoHeight = videoInput.videoHeight;
-        videoInput.setAttribute("width", videoWidth);
-        videoInput.setAttribute("height", videoHeight);
-        canvasOutput.width = videoWidth;
-        canvasOutput.height = videoHeight;    
-        videoInput.play();
-        mediaRecorder.start(); 
-  startProcessing({
+  videoInput.addEventListener("canplaythrough", (event) => {
+    const videoWidth = videoInput.videoWidth;
+    const videoHeight = videoInput.videoHeight;
+    videoInput.setAttribute("width", videoWidth);
+    videoInput.setAttribute("height", videoHeight);
+    canvasOutput.width = videoWidth;
+    canvasOutput.height = videoHeight;
+    videoInput.playbackRate = playbackRate;
+    videoInput.play();
+    mediaRecorder.start(); 
+    startProcessing({
       videoInput: videoInput,
       canvasOutput: canvasOutput,
       canvasInput: canvasInputElement(videoInput),
-      detectFace: true,
-  });
-      }
-    }, false) === undefined)
+      detection: detection,
+    });
+  }, false)
 );
+
 const canvasInputElement = (videoInput) => {
   const canvasInput = document.createElement('canvas');
   canvasInput.width = videoInput.videoWidth;
@@ -195,7 +186,7 @@ const startProcessing = ({
   videoInput,
   canvasOutput,
   canvasInput,
-  detectFace,
+  detection,
 }) => {
   const srcMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC4);
 
@@ -208,11 +199,72 @@ const startProcessing = ({
   console.log(cv.getBuildInformation());
   const acceptConfidence = 0.1;
   
-  // Adapted from noone_video
-  const findFaceDeep = () => (
-    utils.createFileFromUrl(modelFile, modelFile, () => (
-      utils.createFileFromUrl(protoFile, protoFile, () => {
-        const net = cv.readNetFromCaffe(protoFile, modelFile); 
+  const detect = {
+    deep: () => (
+      utils.createFileFromUrl(modelFile, modelFile, () => (
+        utils.createFileFromUrl(protoFile, protoFile, () => {
+          const net = cv.readNetFromCaffe(protoFile, modelFile); 
+          const processFrame = () => {
+            canvasInput.getContext('2d').drawImage(
+              videoInput,
+              0,
+              0,
+            );
+            const imageData = canvasInput.getContext('2d').getImageData(
+              0,
+              0,
+              videoInput.videoWidth,
+              videoInput.videoHeight,
+            );
+            srcMat.data.set(imageData.data);
+            const bgrMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC3);
+            cv.cvtColor(srcMat, bgrMat, cv.COLOR_RGBA2BGR);
+            const blob = cv.blobFromImage(
+              bgrMat,
+              1.0,
+              {width: 300, height: 300},
+              [104, 177, 123, 0],
+              false,
+              false,
+            );
+            net.setInput(blob);
+            const out = net.forward();
+            const faces = [];
+            for (var i = 0, n = out.data32F.length; i < n; i += 7) {
+              const confidence = out.data32F[i + 2];
+              let left = out.data32F[i + 3] * bgrMat.cols;
+              let top = out.data32F[i + 4] * bgrMat.rows;
+              let right = out.data32F[i + 5] * bgrMat.cols;
+              let bottom = out.data32F[i + 6] * bgrMat.rows;
+              left = Math.min(Math.max(0, left), bgrMat.cols - 1);
+              right = Math.min(Math.max(0, right), bgrMat.cols - 1);
+              bottom = Math.min(Math.max(0, bottom), bgrMat.rows - 1);
+              top = Math.min(Math.max(0, top), bgrMat.rows - 1);
+              if (confidence > acceptConfidence && left < right && top < bottom) {
+                faces.push({x: left, y: top, width: right - left, height: bottom - top});
+                //faces.push(new cv.Rect(left, top, right - left, bottom - top));
+              }
+            }
+            blob.delete();
+            out.delete();
+            
+            canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
+            drawOutputBasic({
+              contextOutput: canvasOutput.getContext('2d'),
+              results: faces,
+              color: 'red',
+              videoWidth: videoInput.videoWidth,
+              videoHeight: videoInput.videoHeight,
+            });
+            requestAnimationFrame(processFrame);
+          };
+          requestAnimationFrame(processFrame);
+        })
+      ))
+    ),
+    haar: () => (
+      utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
+       faceClassifier.load(faceCascadeFile);
         const processFrame = () => {
           canvasInput.getContext('2d').drawImage(
             videoInput,
@@ -226,42 +278,35 @@ const startProcessing = ({
             videoInput.videoHeight,
           );
           srcMat.data.set(imageData.data);
-          const bgrMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC3);
-          cv.cvtColor(srcMat, bgrMat, cv.COLOR_RGBA2BGR);
-          const blob = cv.blobFromImage(
-            bgrMat,
-            1.0,
-            {width: 300, height: 300},
-            [104, 177, 123, 0],
-            false,
-            false,
-          );
-          net.setInput(blob);
-          const out = net.forward();
+          const grayMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC1);
+          cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY);
           const faces = [];
-          for (var i = 0, n = out.data32F.length; i < n; i += 7) {
-            const confidence = out.data32F[i + 2];
-            let left = out.data32F[i + 3] * bgrMat.cols;
-            let top = out.data32F[i + 4] * bgrMat.rows;
-            let right = out.data32F[i + 5] * bgrMat.cols;
-            let bottom = out.data32F[i + 6] * bgrMat.rows;
-            left = Math.min(Math.max(0, left), bgrMat.cols - 1);
-            right = Math.min(Math.max(0, right), bgrMat.cols - 1);
-            bottom = Math.min(Math.max(0, bottom), bgrMat.rows - 1);
-            top = Math.min(Math.max(0, top), bgrMat.rows - 1);
-            if (confidence > acceptConfidence && left < right && top < bottom) {
-              faces.push({x: left, y: top, width: right - left, height: bottom - top});
-              //faces.push(new cv.Rect(left, top, right - left, bottom - top));
+          let size;
+          const faceVect = new cv.RectVector();
+          const faceMat = new cv.Mat();
+          if (true) {
+              cv.pyrDown(grayMat, faceMat);
+              size = faceMat.size();
+            } else {
+              cv.pyrDown(grayMat, faceMat);
+              cv.pyrDown(faceMat, faceMat);
+              size = faceMat.size();
             }
+          faceClassifier.detectMultiScale(faceMat, faceVect);
+          for (let i = 0; i < faceVect.size(); i++) {
+            let face = faceVect.get(i);
+            faces.push(new cv.Rect(face.x, face.y, face.width, face.height));
           }
-          blob.delete();
-          out.delete();
-          
+          faceMat.delete();
+          faceVect.delete();
+
           canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
-          drawOutputBasic({
+
+          drawOutput({
             contextOutput: canvasOutput.getContext('2d'),
             results: faces,
             color: 'red',
+            size: size,
             videoWidth: videoInput.videoWidth,
             videoHeight: videoInput.videoHeight,
           });
@@ -269,64 +314,10 @@ const startProcessing = ({
         };
         requestAnimationFrame(processFrame);
       })
-    ))
-  );
+    ),
+  };
 
-  const findFaceHaar = () => (
-    utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
-     faceClassifier.load(faceCascadeFile);
-      const processFrame = () => {
-        canvasInput.getContext('2d').drawImage(
-          videoInput,
-          0,
-          0,
-        );
-        const imageData = canvasInput.getContext('2d').getImageData(
-          0,
-          0,
-          videoInput.videoWidth,
-          videoInput.videoHeight,
-        );
-        srcMat.data.set(imageData.data);
-        const grayMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC1);
-        cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY);
-        const faces = [];
-        let size;
-        const faceVect = new cv.RectVector();
-        const faceMat = new cv.Mat();
-        if (true) {
-            cv.pyrDown(grayMat, faceMat);
-            size = faceMat.size();
-          } else {
-            cv.pyrDown(grayMat, faceMat);
-            cv.pyrDown(faceMat, faceMat);
-            size = faceMat.size();
-          }
-        faceClassifier.detectMultiScale(faceMat, faceVect);
-        for (let i = 0; i < faceVect.size(); i++) {
-          let face = faceVect.get(i);
-          faces.push(new cv.Rect(face.x, face.y, face.width, face.height));
-        }
-        faceMat.delete();
-        faceVect.delete();
-
-        canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
-
-        drawOutput({
-          contextOutput: canvasOutput.getContext('2d'),
-          results: faces,
-          color: 'red',
-          size: size,
-          videoWidth: videoInput.videoWidth,
-          videoHeight: videoInput.videoHeight,
-        });
-        requestAnimationFrame(processFrame);
-      };
-      requestAnimationFrame(processFrame);
-    })
-  );
-
-  findFaceDeep();
+  detect[detection]();
 };
 
 function drawOutputBasic({
