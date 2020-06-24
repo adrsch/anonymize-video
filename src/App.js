@@ -11,9 +11,9 @@ function App() {
     log: true,
   });
   const [streaming, setStreaming] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
   const uploadVideo = useRef(0);
 
-  const [mediaRecorder, setMediaRecorder] = useState(null);
   const handleUploadVideo = () => runAnon({
     videoInput: document.getElementById('video'),
     canvasOutput: document.getElementById('canvasOutput'),
@@ -39,27 +39,15 @@ function App() {
           <canvas id="canvasOutput"></canvas>
         </div>
         <div>
-    <input type="checkbox" id="face" name="classifier" value="face" defaultChecked></input>
-    <label htmlFor="face">face</label>
-    <input type="checkbox" id="eye" name="cascade" value="eye"></input>
-    <label htmlFor="eye">eye</label>
+          <input type="checkbox" id="face" name="classifier" value="face" defaultChecked></input>
+          <label htmlFor="face">face</label>
+          <input type="checkbox" id="eye" name="cascade" value="eye"></input>
+          <label htmlFor="eye">eye</label>
         </div>
         <div>
           <video id="video">Your browser does not support the video tag.</video>
         </div>
         <button onClick={stopRecording}>STOP</button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
       </header>
       <Script>
       {`
@@ -81,8 +69,8 @@ function App() {
 const runAnon = ({
   videoInput,
   canvasOutput,
-  DetectFace,
-  DetectEye,
+  detectFace,
+  detectEye,
   uploadVideo,
   streaming,
   setStreaming,
@@ -102,8 +90,8 @@ const runAnon = ({
     initVideo({
       videoInput: videoInput,
       canvasOutput: canvasOutput,
-      DetectFace: detectFace,
-      DetectEye: detectEye,
+      detectFace: detectFace,
+      detectEye: detectEye,
       mediaRecorder: mediaRecorder,
       streaming: streaming,
     })
@@ -118,9 +106,9 @@ const outputAudioTrack = ({
   const audioDest = audioContext.createMediaStreamDestination();
   const audioSrc = audioContext.createMediaElementSource(videoInput);
 
-  audioSrc.connect(audioDest); // For media recorder
+  audioSrc.connect(audioDest); // Play audio to stream destination for recording
   if (playback) {
-    audioSrc.connect(audioContext.destination) // For user
+    audioSrc.connect(audioContext.destination) // Play audio to user
   };
   
   return audioDest.stream.getAudioTracks()[0];
@@ -131,16 +119,16 @@ const outputRecorder = ({
   canvasOutput,
   audioTrack,
 }) => {
-  canvasOutput.getContext('2d');
+  canvasOutput.getContext('2d'); // Without first calling getContext, captureStream() may fail
   const mediaStream = canvasOutput.captureStream();
-  mediaStream.addTrack(audioTrack);
+  mediaStream.addTrack(audioTrack); // By adding audio track, the final downloaded video will have original audio
 
   const mediaRecorder = new MediaRecorder(
      mediaStream,
     { mimeType: 'video/webm' },
   );
-  const outputBlobs = [];
 
+  const outputBlobs = [];
   const handleDataAvailable = (event) => {
     if (event.data && event.data.size > 0) {
       outputBlobs.push(event.data);
@@ -186,7 +174,6 @@ const initVideo = ({
       videoInput: videoInput,
       canvasOutput: canvasOutput,
       canvasInput: canvasInputElement(videoInput),
-      //canvasInput: document.getElementById('canvasInput'),
       detectFace: true,
   });
       }
@@ -232,7 +219,6 @@ const startProcessing = ({
     srcMat.data.set(imageData.data);
     cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY);
     const faces = [];
-    const eyes = [];
     let size;
     if (detectFace) {
       const faceVect = new cv.RectVector();
