@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.8.3",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
+    "canvas2video": "^1.1.0",
+    "ffmpeg.js": "^4.2.9003",
+    "mirada": "0.0.15",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "react-inline-script": "^1.2.0",
     "react-scripts": "3.4.1"
   },
   "scripts": {
