@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import Script from 'react-inline-script';
-import cv from './opencv-wasm'; 
+//import cv from './opencv-wasm'; 
+import cv from './opencv-4.3.0';
 import Utils from './utils';
 import { createFFmpeg } from '@ffmpeg/ffmpeg';
 
@@ -197,66 +198,149 @@ const startProcessing = ({
   detectFace,
 }) => {
   const srcMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC4);
-  const grayMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC1);
-  
+
   const faceClassifier = new cv.CascadeClassifier();
-  const utils = new Utils('errorMessage', cv); //use utils class
+  const utils = new Utils('errorMessage', cv);
 
-  const faceCascadeFile = 'haarcascade_frontalface_default.xml'; // path to xml
+  const faceCascadeFile = 'haarcascade_frontalface_default.xml';
+  const modelFile = 'res10_300x300_ssd_iter_140000.caffemodel';
+  const protoFile = 'opencv_face_detector.prototxt';
+  console.log(cv.getBuildInformation());
+  const acceptConfidence = 0.1;
+  
+  // Adapted from noone_video
+  const findFaceDeep = () => (
+    utils.createFileFromUrl(modelFile, modelFile, () => (
+      utils.createFileFromUrl(protoFile, protoFile, () => {
+        const net = cv.readNetFromCaffe(protoFile, modelFile); 
+        const processFrame = () => {
+          canvasInput.getContext('2d').drawImage(
+            videoInput,
+            0,
+            0,
+          );
+          const imageData = canvasInput.getContext('2d').getImageData(
+            0,
+            0,
+            videoInput.videoWidth,
+            videoInput.videoHeight,
+          );
+          srcMat.data.set(imageData.data);
+          const bgrMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC3);
+          cv.cvtColor(srcMat, bgrMat, cv.COLOR_RGBA2BGR);
+          const blob = cv.blobFromImage(
+            bgrMat,
+            1.0,
+            {width: 300, height: 300},
+            [104, 177, 123, 0],
+            false,
+            false,
+          );
+          net.setInput(blob);
+          const out = net.forward();
+          const faces = [];
+          for (var i = 0, n = out.data32F.length; i < n; i += 7) {
+            const confidence = out.data32F[i + 2];
+            let left = out.data32F[i + 3] * bgrMat.cols;
+            let top = out.data32F[i + 4] * bgrMat.rows;
+            let right = out.data32F[i + 5] * bgrMat.cols;
+            let bottom = out.data32F[i + 6] * bgrMat.rows;
+            left = Math.min(Math.max(0, left), bgrMat.cols - 1);
+            right = Math.min(Math.max(0, right), bgrMat.cols - 1);
+            bottom = Math.min(Math.max(0, bottom), bgrMat.rows - 1);
+            top = Math.min(Math.max(0, top), bgrMat.rows - 1);
+            if (confidence > acceptConfidence && left < right && top < bottom) {
+              faces.push({x: left, y: top, width: right - left, height: bottom - top});
+              //faces.push(new cv.Rect(left, top, right - left, bottom - top));
+            }
+          }
+          blob.delete();
+          out.delete();
+          
+          canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
+          drawOutputBasic({
+            contextOutput: canvasOutput.getContext('2d'),
+            results: faces,
+            color: 'red',
+            videoWidth: videoInput.videoWidth,
+            videoHeight: videoInput.videoHeight,
+          });
+          requestAnimationFrame(processFrame);
+        };
+        requestAnimationFrame(processFrame);
+      })
+    ))
+  );
 
-  const processFrame = () => {
-    canvasInput.getContext('2d').drawImage(
-      videoInput,
-      0,
-      0,
-    );
-    const imageData = canvasInput.getContext('2d').getImageData(
-      0,
-      0,
-      videoInput.videoWidth,
-      videoInput.videoHeight,
-    );
-    srcMat.data.set(imageData.data);
-    cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY);
-    const faces = [];
-    let size;
-    if (detectFace) {
-      const faceVect = new cv.RectVector();
-      const faceMat = new cv.Mat();
-      if (true) {
-        cv.pyrDown(grayMat, faceMat);
-        size = faceMat.size();
-      } else {
-        cv.pyrDown(grayMat, faceMat);
-        cv.pyrDown(faceMat, faceMat);
-        size = faceMat.size();
-      }
-      faceClassifier.detectMultiScale(faceMat, faceVect);
-      for (let i = 0; i < faceVect.size(); i++) {
-        let face = faceVect.get(i);
-        faces.push(new cv.Rect(face.x, face.y, face.width, face.height));
-      }
-      faceMat.delete();
-      faceVect.delete();
-    }
-    canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
-    drawOutput({
-      contextOutput: canvasOutput.getContext('2d'),
-      results: faces,
-      color: 'red',
-      size: size,
-      videoWidth: videoInput.videoWidth,
-      videoHeight: videoInput.videoHeight,
-    });
-    requestAnimationFrame(processFrame);
-  };
-  // use createFileFromUrl to "pre-build" the xml
-  utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
-    faceClassifier.load(faceCascadeFile); // in the callback, load the cascade from file 
-    requestAnimationFrame(processFrame);
-  });
+  const findFaceHaar = () => (
+    utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
+     faceClassifier.load(faceCascadeFile);
+      const processFrame = () => {
+        canvasInput.getContext('2d').drawImage(
+          videoInput,
+          0,
+          0,
+        );
+        const imageData = canvasInput.getContext('2d').getImageData(
+          0,
+          0,
+          videoInput.videoWidth,
+          videoInput.videoHeight,
+        );
+        srcMat.data.set(imageData.data);
+        const grayMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC1);
+        cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY);
+        const faces = [];
+        let size;
+        const faceVect = new cv.RectVector();
+        const faceMat = new cv.Mat();
+        if (true) {
+            cv.pyrDown(grayMat, faceMat);
+            size = faceMat.size();
+          } else {
+            cv.pyrDown(grayMat, faceMat);
+            cv.pyrDown(faceMat, faceMat);
+            size = faceMat.size();
+          }
+        faceClassifier.detectMultiScale(faceMat, faceVect);
+        for (let i = 0; i < faceVect.size(); i++) {
+          let face = faceVect.get(i);
+          faces.push(new cv.Rect(face.x, face.y, face.width, face.height));
+        }
+        faceMat.delete();
+        faceVect.delete();
+
+        canvasOutput.getContext('2d').drawImage(canvasInput, 0, 0);
+
+        drawOutput({
+          contextOutput: canvasOutput.getContext('2d'),
+          results: faces,
+          color: 'red',
+          size: size,
+          videoWidth: videoInput.videoWidth,
+          videoHeight: videoInput.videoHeight,
+        });
+        requestAnimationFrame(processFrame);
+      };
+      requestAnimationFrame(processFrame);
+    })
+  );
+
+  findFaceDeep();
 };
 
+function drawOutputBasic({
+  contextOutput,
+  results,
+  color,
+  videoWidth,
+  videoHeight,
+}) {
+  for (let i = 0; i < results.length; ++i) {
+    let rect = results[i];
+    contextOutput.fillRect(rect.x, rect.y, rect.width, rect.height);
+  }
+}
 function drawOutput({
   contextOutput,
   results,
@@ -268,6 +352,7 @@ function drawOutput({
   for (let i = 0; i < results.length; ++i) {
     let rect = results[i];
     let xRatio = videoWidth/size.width;
+    console.log(rect.x*xRatio);
     let yRatio = videoHeight/size.height;
     contextOutput.fillRect(rect.x*xRatio, rect.y*yRatio, rect.width*xRatio, rect.height*yRatio);
   }
