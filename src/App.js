@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useEffect, useState, useRef } from 'react';
 import logo from './logo.svg';
 import './App.css';
@@ -5,31 +6,31 @@ import Script from 'react-inline-script';
 //import cv from './opencv-wasm'; 
 import cv from './opencv-4.3.0';
 import Utils from './utils';
-import { createFFmpeg } from '@ffmpeg/ffmpeg';
+import { createWorker } from '@ffmpeg/ffmpeg';
+
+const URL = (window.URL || window.webkitURL);
+let streaming = false;
 
 function App() {
-  const ffmpeg = createFFmpeg({
-    log: true,
-  });
-  const [streaming, setStreaming] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const uploadVideo = useRef(0);
 
   const handleUploadVideo = () => runAnon({
     videoInput: document.getElementById('video'),
     canvasOutput: document.getElementById('canvasOutput'),
-    detection: 'deep',
+    detection: 'haar',
     uploadVideo: uploadVideo,
     setMediaRecorder: setMediaRecorder,
     playbackRate: 0.1,
   });
 
   const stopRecording = () => {
+    streaming = false;
+    document.getElementById('video').pause();
     if (mediaRecorder !== undefined) {
       mediaRecorder.stop();
     }
   }
-
   return (
     <div className="App">
       <header className="App-header">
@@ -73,7 +74,14 @@ const runAnon = ({
   setMediaRecorder,
   playbackRate,
 }) => {
-  videoInput.src = (window.URL || window.webkitURL).createObjectURL(uploadVideo.current.files[0]);
+  streaming = true;
+  slowVideo(
+    videoInput,
+    URL.createObjectURL(uploadVideo.current.files[0]),
+    uploadVideo.current.files[0].name,
+    uploadVideo.current.files[0].type,
+    playbackRate,
+  );
   const mediaRecorder = outputRecorder({
     videoInput: videoInput,
     canvasOutput: canvasOutput,
@@ -81,6 +89,7 @@ const runAnon = ({
       videoInput: videoInput,
       playAudio: false,
     }),
+    playbackRate: playbackRate,
   });
   setMediaRecorder(mediaRecorder);
   initVideo({
@@ -88,9 +97,32 @@ const runAnon = ({
     canvasOutput: canvasOutput,
     detection: detection,
     mediaRecorder: mediaRecorder,
-    playbackRate: playbackRate,
   });
 };
+
+const slowVideo = (videoInput, videoUrl, name, type, playbackRate) => {
+  const ffmpeg = createWorker({
+          logger: ({ message }) => console.log(message),
+        });
+  (async () => {
+    console.log(videoUrl);
+    console.log('hello!');
+    await ffmpeg.load();
+    console.log('writing');
+    await ffmpeg.write(name, videoUrl);
+    console.log(ffmpeg.ls('/'));
+    console.log('running');
+    await ffmpeg.run(`-itsscale ${1/playbackRate} -i ${name} -c copy -o slow${name}`); // fast
+    await ffmpeg.run(`-i ${name} -filter:v setpts=PTS/${playbackRate} -max_muxing_queue_size 4096 slow${name}`); // slow
+    console.log('done!');
+    const data = (await ffmpeg.read(`slow${name}`)).data;
+    console.log(data);
+    const blob = new Blob([data.buffer], {type:type});
+    console.log(blob);
+    videoInput.src = URL.createObjectURL(blob);
+  })();
+};
+
 
 const outputAudioTrack = ({
   videoInput,
@@ -108,10 +140,46 @@ const outputAudioTrack = ({
   return audioDest.stream.getAudioTracks()[0];
 };
 
+const convertVideo = (videoUrl, playbackRate) => {
+  const ffmpeg = createWorker({
+          logger: ({ message }) => console.log(message),
+        });
+  (async () => {
+    console.log(videoUrl);
+    console.log('hello!');
+    await ffmpeg.load();
+    console.log('writing');
+    await ffmpeg.write('video.webm', videoUrl);
+    console.log(ffmpeg.ls('/'));
+    console.log('running');
+    //await ffmpeg.run(`-i video.webm -filter:v setpts=${playbackRate}*PTS out.webm`);
+    await ffmpeg.run(`-itsscale ${playbackRate} -i video.webm -c copy out.webm`);
+    //await ffmpeg.transcode('video.webm', 'out.mp4');
+    console.log('done!');
+    const data = (await ffmpeg.read('out.webm')).data;
+    console.log(data);
+    const blob = new Blob([data.buffer], {type:'video/webm'});
+    console.log(blob);
+
+    const url = (window.URL || window.webkitURL).createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'test.webm';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(videoUrl);
+    }, 100);
+  })();
+};
+
 const outputRecorder = ({
   videoInput,
   canvasOutput,
   audioTrack,
+  playbackRate,
 }) => {
   canvasOutput.getContext('2d'); // Without first calling getContext, captureStream() may fail
   const mediaStream = canvasOutput.captureStream();
@@ -129,7 +197,9 @@ const outputRecorder = ({
     }
     const blob = new Blob(outputBlobs, {type: 'video/webm'});
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    console.log(url);
+    convertVideo(url, playbackRate);
+    /*const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
     a.download = 'test.webm';
@@ -138,7 +208,7 @@ const outputRecorder = ({
     setTimeout(() => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    }, 100);
+    }, 100);*/
   }
   mediaRecorder.ondataavailable = handleDataAvailable;
 
@@ -150,8 +220,7 @@ const initVideo = ({
   canvasOutput,
   detection,
   mediaRecorder,
-  playbackRate=1.0,
-}) => (
+}) => {
   videoInput.addEventListener("canplaythrough", (event) => {
     const videoWidth = videoInput.videoWidth;
     const videoHeight = videoInput.videoHeight;
@@ -159,7 +228,6 @@ const initVideo = ({
     videoInput.setAttribute("height", videoHeight);
     canvasOutput.width = videoWidth;
     canvasOutput.height = videoHeight;
-    videoInput.playbackRate = playbackRate;
     videoInput.play();
     mediaRecorder.start(); 
     startProcessing({
@@ -168,8 +236,8 @@ const initVideo = ({
       canvasInput: canvasInputElement(videoInput),
       detection: detection,
     });
-  }, false)
-);
+  }, false);
+};
 
 const canvasInputElement = (videoInput) => {
   const canvasInput = document.createElement('canvas');
@@ -256,7 +324,7 @@ const startProcessing = ({
               videoWidth: videoInput.videoWidth,
               videoHeight: videoInput.videoHeight,
             });
-            requestAnimationFrame(processFrame);
+            if (streaming) { requestAnimationFrame(processFrame); }
           };
           requestAnimationFrame(processFrame);
         })
@@ -343,7 +411,6 @@ function drawOutput({
   for (let i = 0; i < results.length; ++i) {
     let rect = results[i];
     let xRatio = videoWidth/size.width;
-    console.log(rect.x*xRatio);
     let yRatio = videoHeight/size.height;
     contextOutput.fillRect(rect.x*xRatio, rect.y*yRatio, rect.width*xRatio, rect.height*yRatio);
   }
