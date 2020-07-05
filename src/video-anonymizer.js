@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import cv from './opencv-4.3.0';
-import Utils from './utils';
+import React, { useState, useEffect, useRef } from 'react';
+import clsx from 'clsx';
+import cv from './vendor/opencv-4.3.0';
+import Utils from './vendor/utils';
 import { createWorker } from '@ffmpeg/ffmpeg';
 import { makeStyles } from '@material-ui/core/styles';
 import Stepper from '@material-ui/core/Stepper';
@@ -13,11 +14,22 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 const useStyles = makeStyles((theme) => ({
   root: {
     width: '100%',
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
-  backButton: {
-    marginRight: theme.spacing(1),
+  row: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(1),
   },
-  instructions: {
+  container: {
+    display: 'flex',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    minWidth: '100%',
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(1),
   },
@@ -26,38 +38,46 @@ const useStyles = makeStyles((theme) => ({
 const URL = (window.URL || window.webkitURL);
 
 const VideoAnonymizer = (props) => {
-  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const classes = useStyles();
   const [waiting, setWaiting] = useState(false);
-  useEffect(() => runAnon({
-    videoInput: document.getElementById('video'),
-    canvasOutput: document.getElementById('canvasOutput'),
-    video: props.video,
-    setMediaRecorder: setMediaRecorder,
-    options: props.options,
-    setWaiting: setWaiting,
-  }), []);
-  const stopRecording = () => {
-    document.getElementById('video').pause();
-    if (mediaRecorder !== undefined) {
-      mediaRecorder.stop();
+  const [videoInput, setVideoInput] = useState(false);
+  const [canvasOutput, setCanvasOutput] = useState(false);
+  useEffect(() => {
+    if (videoInput && canvasOutput) {
+      runAnon({
+        videoInput: videoInput,
+        canvasOutput: canvasOutput,
+        video: props.video,
+        options: props.options,
+        setWaiting: setWaiting,
+      });
     }
-  }
+  }, [videoInput, canvasOutput]);
   return (
-    <div>
+    <div className={clsx(classes.root)}>
       {(waiting !== false)
         ? (
-          <div>
+          <div className={clsx(classes.container)}>
+            <div className={clsx(classes.row)}>
             <CircularProgress />
+            </div>
+            <div className={clsx(classes.row)}>
             <Typography>
               {waiting}
               </Typography>
           </div>
+          </div>
         )
         : null
       }
-      <video id="video"></video>
-      <canvas id="canvasOutput"></canvas>
-      <Button onClick={stopRecording}>STOP</Button>
+      <div className={clsx(classes.container)}>
+        <div className={clsx(classes.row)}>
+          <video ref={(el) => setVideoInput(el)}></video>
+        </div>
+        <div className={clsx(classes.row)}>
+          <canvas ref={(el) => setCanvasOutput(el)}></canvas>
+        </div>
+      </div>
     </div>
   );
 }
@@ -67,7 +87,6 @@ const runAnon = ({
   videoInput,
   canvasOutput,
   video,
-  setMediaRecorder,
   options,
   setWaiting,
 }) => {
@@ -79,21 +98,21 @@ const runAnon = ({
     options: options,
     setWaiting: setWaiting,
   });
-  const mediaRecorder = outputRecorder({
-    videoInput: videoInput,
-    canvasOutput: canvasOutput,
-    audioTrack: outputAudioTrack({
-      videoInput: videoInput,
-      playAudio: false,
-    }),
-    playbackRate: options.playbackRate,
-  });
-  setMediaRecorder(mediaRecorder);
   initVideo({
     videoInput: videoInput,
     canvasOutput: canvasOutput,
     detection: options.detection,
-    mediaRecorder: mediaRecorder,
+    mediaRecorder: outputRecorder({
+      videoInput: videoInput,
+      canvasOutput: canvasOutput,
+      audioTrack: outputAudioTrack({
+        videoInput: videoInput,
+        playAudio: false,
+      }),
+      playbackRate: options.playbackRate,
+      videoUrl: URL.createObjectURL(video),
+      setWaiting: setWaiting,
+    }),
     setWaiting: setWaiting,
   });
 };
@@ -113,19 +132,15 @@ const preProcess = ({
   (async () => {
     await ffmpeg.load();
     await ffmpeg.write(name, videoUrl);
-    if (options.scaleFactor >0) {
-      setWaiting('Slowing video...');
+    setWaiting('Preprocessing video...');
+    if (options.scaleFactor === 1) {
       await ffmpeg.run(`-itsscale ${1/options.playbackRate} -i ${name} -c copy input${name}`); // fast
     }
     else {
-      setWaiting('Scaling & slowing video...');
       await ffmpeg.run(`-i ${name} -filter:v setpts=PTS/${options.playbackRate} scale=iw*${options.scaleFactor}:ih*${options.scaleFactor} -max_muxing_queue_size 4096 input${name}`); // slow
     }
-    console.log('done!');
     const data = (await ffmpeg.read(`input${name}`)).data;
-    console.log(data);
     const blob = new Blob([data.buffer], {type:type});
-    console.log(blob);
     videoInput.src = URL.createObjectURL(blob);
   })();
 };
@@ -147,28 +162,28 @@ const outputAudioTrack = ({
   return audioDest.stream.getAudioTracks()[0];
 };
 
-const convertVideo = (videoUrl, playbackRate) => {
+const convertVideo = ({
+  anonUrl,
+  videoUrl,
+  playbackRate,
+  setWaiting,
+}) => {
   const ffmpeg = createWorker({
           logger: ({ message }) => console.log(message),
         });
   (async () => {
-    console.log(videoUrl);
-    console.log('hello!');
+    setWaiting('Converting video...');
     await ffmpeg.load();
-    console.log('writing');
-    await ffmpeg.write('video.webm', videoUrl);
-    console.log(ffmpeg.ls('/'));
-    console.log('running');
+    await ffmpeg.write('video.webm', anonUrl);
     //await ffmpeg.run(`-i video.webm -filter:v setpts=${playbackRate}*PTS out.webm`);
-    await ffmpeg.run(`-itsscale ${playbackRate} -i video.webm -c copy out.webm`);
+    await ffmpeg.run(`-itsscale ${playbackRate} -i video.webm -c copy normalspeed.webm`);
+    await ffmpeg.write('video.webm', anonUrl);
+    await ffmpeg.run('-i normalspeed.webm');
     //await ffmpeg.transcode('video.webm', 'out.mp4');
-    console.log('done!');
     const data = (await ffmpeg.read('out.webm')).data;
-    console.log(data);
     const blob = new Blob([data.buffer], {type:'video/webm'});
-    console.log(blob);
-
-    const url = (window.URL || window.webkitURL).createObjectURL(blob);
+    setWaiting(false);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
@@ -177,6 +192,7 @@ const convertVideo = (videoUrl, playbackRate) => {
     a.click();
     setTimeout(() => {
       document.body.removeChild(a);
+      window.URL.revokeObjectURL(anonUrl);
       window.URL.revokeObjectURL(videoUrl);
     }, 100);
   })();
@@ -187,8 +203,10 @@ const outputRecorder = ({
   canvasOutput,
   audioTrack,
   playbackRate,
+  videoUrl,
+  setWaiting,
 }) => {
-  canvasOutput.getContext('2d'); // Without first calling getContext, captureStream() may fail
+  canvasOutput.getContext('2d'); // Without calling getContext first, captureStream() fails
   const mediaStream = canvasOutput.captureStream();
   mediaStream.addTrack(audioTrack); // By adding audio track, the final downloaded video will have original audio
 
@@ -203,19 +221,13 @@ const outputRecorder = ({
       outputBlobs.push(event.data);
     }
     const blob = new Blob(outputBlobs, {type: 'video/webm'});
-    const url = window.URL.createObjectURL(blob);
-    console.log(url);
-    convertVideo(url, playbackRate);
-    /*const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = 'test.webm';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    }, 100);*/
+    const anonUrl = window.URL.createObjectURL(blob);
+    convertVideo({
+      anonUrl: anonUrl,
+      videoUrl: videoUrl,
+      playbackRate: playbackRate,
+      setWaiting: setWaiting,
+    });
   }
   mediaRecorder.ondataavailable = handleDataAvailable;
 
@@ -229,6 +241,9 @@ const initVideo = ({
   mediaRecorder,
   setWaiting,
 }) => {
+  videoInput.addEventListener("ended", (event) => {
+    mediaRecorder.stop();
+  });
   videoInput.addEventListener("canplaythrough", (event) => {
     const videoWidth = videoInput.videoWidth;
     const videoHeight = videoInput.videoHeight;
@@ -245,7 +260,7 @@ const initVideo = ({
       canvasInput: canvasInputElement(videoInput),
       detection: detection,
     });
-  }, false);
+  });
 };
 
 const canvasInputElement = (videoInput) => {
