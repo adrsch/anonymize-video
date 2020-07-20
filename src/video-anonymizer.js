@@ -317,7 +317,7 @@ const processVideo = ({
   const utils = new Utils('errorMessage', cv);
   const srcMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC4);
 
-  const detectDeep = (net) => { 
+  const detectDeep = (net) => {
     const bgrMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC3);
     cv.cvtColor(srcMat, bgrMat, cv.COLOR_RGBA2BGR);
     const blob = cv.blobFromImage(
@@ -378,7 +378,7 @@ const processVideo = ({
   };
 
   const makeProcessFrameCallback = (selectedModels) => () => {
-    const models = selectedModels.map(([type, details]) => (details.type === 'deep')
+    const models = selectedModels.map(details => (details.type === 'deep')
       ? cv.readNetFromCaffe(details.proto, details.model)
       : details.xml.map(xml => loadCascadeClassifier(xml))
     );
@@ -419,11 +419,17 @@ const processVideo = ({
     classifier.load(xml);
     return classifier;
   };
-  const setupFileCreation = (file) => (callback=makeProcessFrameCallback(selectedModels)) =>{ console.log(callback); utils.createFileFromUrl(file, file, callback); };
+
   const selectedModels = Object.entries(models)
-    .filter(([name, details]) => options[name]);
+    .filter(([name, details]) => options[name])
+    .map(([name, details]) => details);
+
+  const setupFileCreation = (file) => (
+    callback=makeProcessFrameCallback(selectedModels) // If a callback to create the next file is not passed, use a callback to begin processing
+  ) => utils.createFileFromUrl(file, file, callback);
+
   // Generate a list of callbacks for setting up files to be chained
-  selectedModels.map(([name, details]) => (details.type === 'deep')
+  selectedModels.map(details => (details.type === 'deep')
       ? [details.model, details.proto]
       : details.xml
     )
