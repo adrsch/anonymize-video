@@ -54,7 +54,7 @@ const VideoAnonymizer = ({
         logger: (process.env.REACT_APP_STAGE === 'PROD') // Only log in development
           ? false
           : ({ message }) => console.log(message),
-//        log: process.env.REACT_APP_STAGE !== 'PROD',
+        log: process.env.REACT_APP_STAGE !== 'PROD',
       });
       const mediaRecorder = outputRecorder({
         videoInput: videoInput,
@@ -140,7 +140,6 @@ const VideoAnonymizer = ({
     </div>
   );
 }
-
 
 const downloadVideo = (url) => {
   const a = document.createElement('a');
@@ -317,6 +316,7 @@ const processVideo = ({
 
   const utils = new Utils('errorMessage', cv);
   const srcMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC4);
+
   const detectDeep = (net) => { 
     const bgrMat = new cv.Mat(videoInput.videoHeight, videoInput.videoWidth, cv.CV_8UC3);
     cv.cvtColor(srcMat, bgrMat, cv.COLOR_RGBA2BGR);
@@ -411,7 +411,6 @@ const processVideo = ({
 
     videoInput.play();
     mediaRecorder.start();
-    console.log(mediaRecorder);
     requestAnimationFrame(processFrame);
   };
 
@@ -421,10 +420,8 @@ const processVideo = ({
     return classifier;
   };
   const setupFileCreation = (file) => (callback=makeProcessFrameCallback(selectedModels)) =>{ console.log(callback); utils.createFileFromUrl(file, file, callback); };
-  console.log(options.detection);
   const selectedModels = Object.entries(models)
     .filter(([name, details]) => options[name]);
-  console.log(selectedModels);
   // Generate a list of callbacks for setting up files to be chained
   selectedModels.map(([name, details]) => (details.type === 'deep')
       ? [details.model, details.proto]
@@ -435,30 +432,5 @@ const processVideo = ({
     // Load all resources, then use the final callback to start processing frames
     .reduce((create, nextCreator) => () => nextCreator(create))();
 };
-
-function drawOutputBasic({
-  contextOutput,
-  results,
-  color,
-  videoWidth,
-  videoHeight,
-}) {
-
-}
-function drawfadsOutput({
-  contextOutput,
-  results,
-  color,
-  size,
-  videoWidth,
-  videoHeight,
-}) {
-  for (let i = 0; i < results.length; ++i) {
-    let rect = results[i];
-    let xRatio = videoWidth/size.width;
-    let yRatio = videoHeight/size.height;
-    contextOutput.fillRect(rect.x*xRatio, rect.y*yRatio, rect.width*xRatio, rect.height*yRatio);
-  }
-}
 
 export default VideoAnonymizer;
