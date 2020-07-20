@@ -5,8 +5,10 @@ import { makeStyles } from '@material-ui/core/styles';
 import FormLabel from '@material-ui/core/FormLabel';
 import FormControl from '@material-ui/core/FormControl';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormGroup from '@material-ui/core/FormGroup';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
+import Checkbox from '@material-ui/core/Checkbox';
 import TextField from '@material-ui/core/TextField';
 
 const useStyles = makeStyles((theme) => ({
@@ -16,9 +18,9 @@ const useStyles = makeStyles((theme) => ({
   backButton: {
     marginRight: theme.spacing(1),
   },
-  instructions: {
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
+  formLabel: {
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(2),
   },
   textField: {
     marginTop: theme.spacing(3),
@@ -38,13 +40,13 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
     Object.values(errorObject).reduce((error, cur) => (error || cur))
   );
 
-  const changeOptionHandler = (option) => (event) => {
-    const newOptions = Object.assign({}, options, { [option]: event.target.value }); // eslint-disable-line
+  const changeHandler = (option, field='value') => (event) => {
+    const newOptions = Object.assign({}, options, { [option]: event.target[field] }); // eslint-disable-line
     setOptions(newOptions);
     setParentOptions(newOptions);
   };
 
-  const validateChangeOptionHandler = (option, validate) => (event) => {
+  const validateChangeHandler = (option, validate) => (event) => {
     const newErrors = Object.assign({}, errors, { [option]: !validate(event.target.value) }); // eslint-disable-line
     setErrors(newErrors);
     setParentErrors(checkErrors(newErrors));
@@ -52,18 +54,82 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
     setOptions(newOptions);
     setParentOptions(newOptions);
   };
-
+console.log(options);
   return (
     <FormControl component="fieldset">
-      <FormLabel component="legend">Detection</FormLabel>
-      <RadioGroup
+      <FormLabel component="legend" className={clsx(classes.formLabel)}>Detection</FormLabel>
+      <FormGroup
         aria-label="detection"
         name="detection"
-        value={options.detection}
-        onChange={changeOptionHandler('detection')}
       >
-        <FormControlLabel value="haar" control={<Radio />} label="Fast & inaccurate" />
-        <FormControlLabel value="deep" control={<Radio />} label="Slow & accurate (video may be choppy)" />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.haarFace}
+            onChange={changeHandler('haarFace', 'checked')}
+          />}
+          label="Minimal Facial detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.multiFace}
+            onChange={changeHandler('multiFace', 'checked')}
+          />}
+          label="Standard Facial detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.haarProf}
+            onChange={changeHandler('haarProf', 'checked')}
+          />}
+          label="Face profile detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.haarUpper}
+            onChange={changeHandler('haarUpper', 'checked')}
+          />}
+          label="Upper body detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.haarFull}
+            onChange={changeHandler('haarFull', 'checked')}
+          />}
+          label="Full body detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.multiEye}
+            onChange={changeHandler('multiEye', 'checked')}
+          />}
+          label="Eye detection"
+        />
+        <FormControlLabel
+          control={<Checkbox
+            checked={options.deepFace}
+            onChange={changeHandler('deepFace', 'checked')}
+          />}
+          label="Slow & accurate facial detection (video may be choppy)"
+        />
+      </FormGroup>
+      <TextField
+        error={errors.threshold}
+        className={clsx(classes.textField)}
+        variant="outlined"
+        id="standard-error-helper-text"
+        label="Detection threshold"
+        value={options.threshold}
+        onChange={validateChangeHandler('threshold', (number) => !Number.isNaN(number))}
+      />
+      <FormLabel component="legend" className={clsx(classes.formLabel)}>Anonymization</FormLabel>
+      <RadioGroup
+        aria-label="anonymization"
+        name="anonymization"
+        value={options.draw}
+        onChange={changeHandler('draw')}
+      >
+        <FormControlLabel value="blackRect" control={<Radio />} label="Black rectangle" />
+        <FormControlLabel value="blackCirc" control={<Radio />} label="Black circle" />
       </RadioGroup>
       <TextField
         error={errors.playbackRate}
@@ -73,7 +139,7 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
         label="Processing playback speed"
         value={options.playbackRate}
         helperText="If set too high, anonymized video will be choppy"
-        onChange={validateChangeOptionHandler('playbackRate', (number) => !Number.isNaN(number))}
+        onChange={validateChangeHandler('playbackRate', (number) => !Number.isNaN(number))}
       />
       <TextField
         error={errors.scaleFactor}
@@ -83,28 +149,23 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
         label="Video resolution scale factor"
         value={options.scaleFactor}
         helperText="Setting to anything but 1 increases pre-processing time"
-        onChange={validateChangeOptionHandler('scaleFactor', (number) => !Number.isNaN(number))}
+        onChange={validateChangeHandler('scaleFactor', (number) => !Number.isNaN(number))}
       />
-      <FormLabel component="legend">Output format</FormLabel>
-      <RadioGroup
-        aria-label="format"
-        name="format"
-        value={options.outputFormat}
-        onChange={changeOptionHandler('outputFormat')}
-      >
-        <FormControlLabel value="video/mp4" control={<Radio />} label="mp4" />
-        <FormControlLabel value="video/webm" control={<Radio />} label="webm" />
-      </RadioGroup>
     </FormControl>
   );
 };
 
 AnonOptionsForm.propTypes = {
-  defaultOptions: PropTypes.objectOf(
-    PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.number])
-  ).isRequired,
+  defaultOptions: PropTypes.oneOfType([
+    PropTypes.objectOf(
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+        PropTypes.bool,
+      ])
+    ),
+    PropTypes.bool,
+  ]),
   setParentOptions: PropTypes.func.isRequired,
   setParentErrors: PropTypes.func.isRequired,
 };

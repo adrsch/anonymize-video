@@ -29,10 +29,18 @@ const App = () => {
   const [processing, setProcessing] = useState(false);
   const [video, setVideo] = useState(null);
   const [options, setOptions] = useState({
-    detection: 'haar',
     scaleFactor: 1.0,
     outputFormat: 'video/mp4',
     playbackRate: 0.5,
+    draw: 'blackRect',
+    threshold: 0.1,
+    haarFace: false,
+    multiFace: true,
+    haarProf: false,
+    haarUpper: false,
+    haarFull: false,
+    multiEye: false,
+    deepFace: false,
   });
   const [errors, setErrors] = useState(false);
   return ((processing)
