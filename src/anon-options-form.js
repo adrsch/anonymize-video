@@ -54,7 +54,6 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
     setOptions(newOptions);
     setParentOptions(newOptions);
   };
-console.log(options);
   return (
     <FormControl component="fieldset">
       <FormLabel component="legend" className={clsx(classes.formLabel)}>Detection</FormLabel>
@@ -109,7 +108,7 @@ console.log(options);
             checked={options.deepFace}
             onChange={changeHandler('deepFace', 'checked')}
           />}
-          label="Slow & accurate facial detection (video may be choppy)"
+          label="Slow & accurate deep facial detection (experimental)"
         />
       </FormGroup>
       <TextField

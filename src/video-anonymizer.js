@@ -286,12 +286,14 @@ const drawingFunctions = {
   blackCirc: (detected, ctx) => {
     for (let i = 0; i < detected.length; ++i) {
       const rect = detected[i];
+      ctx.fillStyle = 'black';
       ctx.save();
       ctx.scale(1, rect.height / rect.width);
       ctx.beginPath();
       ctx.arc(
         rect.x + (rect.width / 2),
-        rect.y + (rect.height / 2),
+        //(rect.y + (rect.height / 2)) * (rect.width / rect.height),
+        (rect.y * rect.width / rect.height) + (rect.width / 2),
         rect.width / 2,
         0,
         2 * Math.PI,
