@@ -73,7 +73,7 @@ const App = () => {
           </div>
           <div className={clsx(classes.container)}>
             <AnonOptionsForm
-              defaultOptions={options}
+              initialOptions={options}
               setParentOptions={setOptions}
               setParentErrors={setErrors}
             />

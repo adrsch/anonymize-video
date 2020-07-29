@@ -28,9 +28,9 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) => {
+const AnonOptionsForm = ({ initialOptions, setParentOptions, setParentErrors }) => {
   const classes = useStyles();
-  const [options, setOptions] = useState(defaultOptions);
+  const [options, setOptions] = useState(initialOptions);
   const [errors, setErrors] = useState({
     playbackRate: false,
     scaleFactor: false,
@@ -40,7 +40,7 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
     Object.values(errorObject).reduce((error, cur) => (error || cur))
   );
 
-  const changeHandler = (option, field='value') => (event) => {
+  const changeHandler = (option, field = 'value') => (event) => {
     const newOptions = Object.assign({}, options, { [option]: event.target[field] }); // eslint-disable-line
     setOptions(newOptions);
     setParentOptions(newOptions);
@@ -62,52 +62,66 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
         name="detection"
       >
         <FormControlLabel
-          control={<Checkbox
-            checked={options.haarFace}
-            onChange={changeHandler('haarFace', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.haarFace}
+              onChange={changeHandler('haarFace', 'checked')}
+            />
+)}
           label="Minimal Facial detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.multiFace}
-            onChange={changeHandler('multiFace', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.multiFace}
+              onChange={changeHandler('multiFace', 'checked')}
+            />
+)}
           label="Standard Facial detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.haarProf}
-            onChange={changeHandler('haarProf', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.haarProf}
+              onChange={changeHandler('haarProf', 'checked')}
+            />
+)}
           label="Face profile detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.haarUpper}
-            onChange={changeHandler('haarUpper', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.haarUpper}
+              onChange={changeHandler('haarUpper', 'checked')}
+            />
+)}
           label="Upper body detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.haarFull}
-            onChange={changeHandler('haarFull', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.haarFull}
+              onChange={changeHandler('haarFull', 'checked')}
+            />
+)}
           label="Full body detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.multiEye}
-            onChange={changeHandler('multiEye', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.multiEye}
+              onChange={changeHandler('multiEye', 'checked')}
+            />
+)}
           label="Eye detection"
         />
         <FormControlLabel
-          control={<Checkbox
-            checked={options.deepFace}
-            onChange={changeHandler('deepFace', 'checked')}
-          />}
+          control={(
+            <Checkbox
+              checked={options.deepFace}
+              onChange={changeHandler('deepFace', 'checked')}
+            />
+)}
           label="Slow & accurate deep facial detection (experimental)"
         />
       </FormGroup>
@@ -155,16 +169,16 @@ const AnonOptionsForm = ({ defaultOptions, setParentOptions, setParentErrors }) 
 };
 
 AnonOptionsForm.propTypes = {
-  defaultOptions: PropTypes.oneOfType([
+  initialOptions: PropTypes.oneOfType([
     PropTypes.objectOf(
       PropTypes.oneOfType([
         PropTypes.string,
         PropTypes.number,
         PropTypes.bool,
-      ])
+      ]),
     ),
     PropTypes.bool,
-  ]),
+  ]).isRequired,
   setParentOptions: PropTypes.func.isRequired,
   setParentErrors: PropTypes.func.isRequired,
 };
