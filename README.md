@@ -1,3 +1,10 @@
+# Anonymize Video
+
+Client-side video anonymization. Try it out!
+https://adrsch.github.io/anonymize-video/
+
+This is quite intensive for a web application - use on slower machines at your own risk! Chrome is also recommended - Firefox has issues recording video with deep facial detection (other, less intense algorithms seem to work fine on it though).
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
