@@ -10,6 +10,7 @@ import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import Checkbox from '@material-ui/core/Checkbox';
 import TextField from '@material-ui/core/TextField';
+import Typography from '@material-ui/core/Typography';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -124,6 +125,9 @@ const AnonOptionsForm = ({ initialOptions, setParentOptions, setParentErrors }) 
 )}
           label="Slow & accurate deep facial detection (experimental)"
         />
+        <Typography variant="subtitle2">
+          NOTE: Deep facial detection may not work on slower machines. Chrome is recommended.
+        </Typography>
       </FormGroup>
       <TextField
         error={errors.threshold}

@@ -430,6 +430,11 @@ const VideoAnonymizer = ({
 
   return (
     <div className={clsx(classes.root)}>
+      <div className={clsx(classes.container)}>
+        <Typography variant="subtitle2">
+          Leaving this tab open is recommended - switching to another tab may cause your browser to allocate less resources, making the end result choppy!
+        </Typography>
+      </div>
       {(waiting !== false)
         ? (
           <div className={clsx(classes.container)}>
