@@ -1,0 +1,26 @@
+{
+  "files": {
+    "main.css": "/anonymize-video/static/css/main.5ecd60fb.chunk.css",
+    "main.js": "/anonymize-video/static/js/main.700ac5ce.chunk.js",
+    "main.js.map": "/anonymize-video/static/js/main.700ac5ce.chunk.js.map",
+    "runtime-main.js": "/anonymize-video/static/js/runtime-main.352bce20.js",
+    "runtime-main.js.map": "/anonymize-video/static/js/runtime-main.352bce20.js.map",
+    "static/css/2.e1f309f9.chunk.css": "/anonymize-video/static/css/2.e1f309f9.chunk.css",
+    "static/js/2.1d183bca.chunk.js": "/anonymize-video/static/js/2.1d183bca.chunk.js",
+    "static/js/2.1d183bca.chunk.js.map": "/anonymize-video/static/js/2.1d183bca.chunk.js.map",
+    "index.html": "/anonymize-video/index.html",
+    "precache-manifest.1c0515a09fbd8626f5f73bec59f83365.js": "/anonymize-video/precache-manifest.1c0515a09fbd8626f5f73bec59f83365.js",
+    "service-worker.js": "/anonymize-video/service-worker.js",
+    "static/css/2.e1f309f9.chunk.css.map": "/anonymize-video/static/css/2.e1f309f9.chunk.css.map",
+    "static/css/main.5ecd60fb.chunk.css.map": "/anonymize-video/static/css/main.5ecd60fb.chunk.css.map",
+    "static/js/2.1d183bca.chunk.js.LICENSE.txt": "/anonymize-video/static/js/2.1d183bca.chunk.js.LICENSE.txt",
+    "static/media/index.css": "/anonymize-video/static/media/roboto-latin-900-normal.bb1e4dc6.woff"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.352bce20.js",
+    "static/css/2.e1f309f9.chunk.css",
+    "static/js/2.1d183bca.chunk.js",
+    "static/css/main.5ecd60fb.chunk.css",
+    "static/js/main.700ac5ce.chunk.js"
+  ]
+}
