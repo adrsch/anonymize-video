@@ -2,6 +2,7 @@
   "name": "anonymize-video",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://adrsch.github.io/anonymize-video",
   "dependencies": {
     "@ffmpeg/ffmpeg": "0.7.0",
     "@material-ui/core": "^4.10.2",
@@ -14,6 +15,7 @@
     "eslint-config-airbnb": "^18.2.0",
     "ffmpeg.js": "^4.2.9003",
     "fontsource-roboto": "^2.1.4",
+    "gh-pages": "^3.1.0",
     "material-ui-dropzone": "^3.3.0",
     "mirada": "0.0.15",
     "prop-types": "^15.7.2",
@@ -23,6 +25,8 @@
     "react-scripts": "3.4.1"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
